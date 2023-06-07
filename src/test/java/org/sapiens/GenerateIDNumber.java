@@ -9,6 +9,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.FileInputStream;
 import java.text.SimpleDateFormat;
+
 import org.testng.annotations.Test;
 import org.apache.poi.ss.usermodel.Cell;
 import org.testng.annotations.AfterClass;
@@ -27,10 +28,13 @@ public class GenerateIDNumber {
     static FileInputStream fis;
     static XSSFWorkbook wb;
     static XSSFSheet sheet;
-    static int excelRowCount = 1;
+    static int excelRowCount = 0;
     static String curDateTime;
     static FileWriter idNumbers;
     ValidateSouthAfricanID obj;
+    String dob;
+    String genderFlag;
+    Boolean checkIDStatus = false;
 
     public GenerateIDNumber() throws IOException {
         Date dateTime = new Date();
@@ -44,23 +48,26 @@ public class GenerateIDNumber {
     @Test(dataProvider = "TestData")
     public void genereateIDNumber(Map<Object, Object> inputRequestData) throws IOException {
         try {
+            if (excelRowCount == 0) {
+                idNumbers.write("DateOfBirth[YYYYMMDD]" + "\t" + "Gender" + "\t" + "SA ID Number" + "\t" + "ID Validation Status" + "\n");
+            }
+            dob = inputRequestData.get("DateOfBirth[YYYYMMDD]").toString();   // YYYYMMDD
+            genderFlag = inputRequestData.get("Gender").toString();
 
-            String dob = inputRequestData.get("DateOfBirth[YYYYMMDD]").toString();   // YYYYMMDD
-            String genderFlag = inputRequestData.get("Gender").toString();
+            while (checkIDStatus == false) {
+                Thread.sleep(500);
+                tempidNumber = configureIDNumber(dob, genderFlag, tempidNumber);
+                Thread.sleep(500);
+                lastDigit = generateLuhnDigit(tempidNumber);
+                finalidNumber = tempidNumber + lastDigit;
+                Thread.sleep(500);
+                checkIDStatus = obj.isValidIdNumber(finalidNumber);
+            }
 
-            Thread.sleep(500);
-            tempidNumber = configureIDNumber(dob, genderFlag, tempidNumber);
-            Thread.sleep(500);
-            lastDigit = generateLuhnDigit(tempidNumber);
-
-            finalidNumber = tempidNumber + lastDigit;
-            Thread.sleep(500);
-
-            Boolean checkIDStatus = obj.isValidIdNumber(finalidNumber);
             // Update the results:
-            idNumbers.write(inputRequestData.get("DateOfBirth[YYYYMMDD]") + "\t" + inputRequestData.get("Gender") + "\t" + finalidNumber + "\t" + checkIDStatus + "\n");
-
+            idNumbers.write(inputRequestData.get("DateOfBirth[YYYYMMDD]") + "\t\t\t\t" + inputRequestData.get("Gender") + "\t\t" + finalidNumber + "\t" + checkIDStatus + "\n");
             excelRowCount++;
+            checkIDStatus = false;  // Reset back to default state:
         } catch (Exception ex) {
             ex.printStackTrace();
             wb.close();
@@ -101,7 +108,6 @@ public class GenerateIDNumber {
         try {
             //        System.out.println(dob.substring(2,4) + dob.substring(6,8) + dob.substring(4,6));
             Random r = new Random();
-
             // gender. 0 – 4 for female and 5 -  9 for male
             int femaleRange = 4;
             int maleRange = 9;
